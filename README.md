@@ -1,143 +1,104 @@
-# 🌊 Nitrox to Singleplayer Save Converter
+# Nitrox to Singleplayer Save Converter
 
-**Ein hochentwickeltes BepInEx-Plugin für Subnautica, das Nitrox-Multiplayer-Spielstände nahtlos analysiert, dekomprimiert und in voll funktionsfähige Singleplayer-Saves konvertiert.**
-
----
-
-Hast du Dutzende von Stunden auf einem Nitrox-Multiplayer-Server verbracht und möchtest diese Welt im Einzelspielermodus weiterspielen? Diese Mod liest die serialisierten JSON-Speicherdaten deines Nitrox-Servers ein und rekonstruiert die gesamte Spielwelt – einschließlich gigantischer Basenstrukturen, Energierelais, personalisierter Fahrzeuge, Containerinhalte, PDA-Daten und des Story-Fortschritts – direkt in einer neuen oder bestehenden Singleplayer-Sitzung.
+A BepInEx plugin for Subnautica that converts Nitrox multiplayer save files into fully working singleplayer saves.
 
 ---
 
-## 🚀 Kernfunktionen & Technische Umsetzung
+This mod reads the serialized JSON save data from a Nitrox multiplayer server and reconstructs the game world—including base structures, power relays, custom vehicles, container inventories, PDA data, and story progression—directly into a singleplayer Subnautica session.
 
-Die Konvertierung einer Multiplayer-Welt in eine Singleplayer-Welt erfordert weit mehr als das bloße Laden von Koordinaten. Die Mod führt einen präzise getakteten, mehrstufigen asynchronen Workflow (Unity Coroutines) aus, um physikalische Glitches zu vermeiden und sicherzustellen, dass alle komplexen Subnautica-Systeme korrekt initialisiert werden.
+## Core Mechanics
 
-### 1. 🏗️ Pass 1: Rekonstruktion der Basis-Geometrie
-* **Wie es funktioniert:** Nitrox speichert Basen als komprimierte Grid-Daten in Base64-Formaten. Die Mod dekomprimiert diese Daten (`Faces`, `Cells`, `Links`, `Masks`, `IsGlass`) mithilfe eines hochentwickelten Run-Length-Encoding-Algorithmus (RLE) und der `DeflateStream`-Klasse (`DecompressRleBytes`).
-* **Technische Umsetzung:** Über Reflection werden die privaten Felder der nativen `Base`-Klasse des Spiels (wie `faces`, `cells`, `links`, `cellOffset`, `masks`, `isGlass` und `anchor`) befüllt. Anschließend triggert die Mod das native Deserialisierungs-Event `FinishDeserialization`, wodurch die Geometrie im Spiel physikalisch korrekt und ohne FPS-Einbrüche erzeugt wird.
+Converting a multiplayer world to singleplayer requires a carefully timed, multi-pass asynchronous workflow (Unity Coroutines) to prevent physics glitches and ensure game engine systems initialize correctly.
 
-### 2. 🗄️ Pass 2: Ausrüstung, Dekoration & Container-Synchronisation
-* **Wie es funktioniert:** Sobald die Basen physisch existieren, werden Einrichtungsgegenstände (Fabrikatoren, Batterieladestationen, Poster, Funkgeräte) an ihren exakten relativen Positionen platziert.
-* **Technische Umsetzung:** 
-  * **Automatisches Reparenting:** Gegenstände, die zu einer Basis gehören, werden dynamisch als Child-Objekte der entsprechenden Basis-Transform (`GetModulesRoot()`) registriert, damit sie sich bei Erschütterungen nicht verschieben.
-  * **Beschriftungssynchronisation:** Wandbeschriftungen und Schilder (wie bei Schränken) werden über `uGUI_SignInput` rekonstruiert.
-  * **Behälterinhalte:** Ein universeller, auf Reflection basierender Container-Finder sucht nach allen Feldern und Properties vom Typ `ItemsContainer` (z. B. in Schränken, Reaktoren, Filtermaschinen) und befüllt diese asynchron mit den ursprünglichen Nitrox-Items.
+### Pass 1: Base Geometry Reconstruction
+Nitrox saves bases as compressed grid data in Base64 formats. The mod decompresses these arrays (Faces, Cells, Links, Masks, IsGlass) using a custom Run-Length Encoding (RLE) Deflate helper. It then populates the private fields of the native Subnautica Base component using reflection and triggers the game's native FinishDeserialization routine. This reconstructs the physical base structures safely.
 
-### 3. 🏎️ Pass 3: Fahrzeug-Wiederherstellung (Cyclops, Seamoth, Prawn)
-* **Wie es funktioniert:** Fahrzeuge werden mit ihren originalen Namen, Farben, Upgrades und Energiewerten geladen.
-* **Technische Umsetzung:**
-  * **Spezial-Handling für Cyclops:** Um physikalische Instabilitäten beim Laden von über 60 potentiellen Inneneinrichtungsobjekten zu verhindern, wird die Cyclops temporär physikalisch eingefroren (`isKinematic = true`) und exakt waagerecht ausgerichtet.
-  * **Namen & kosmetische Farben:** Werden direkt auf das `SubName`-Skript übertragen (`DeserializeName` und `DeserializeColors`).
-  * **Upgrade-Module & Slots:** Die Mod instanziiert die Upgrades und fügt sie den korrekten Slots im Modul-Grid des Fahrzeugs hinzu (`vehicle.modules.AddItem` bzw. `upgradeConsole.modules.AddItem` beim Cyclops).
-  * **Energiemanagement:** Batterien und Energiezellen werden über `EnergyMixin` geladen und auf die ursprünglichen Nitrox-Ladungsstände geladen.
-  * **Docking-Integration:** Die Mod sucht im Umkreis nach passenden Mondpools oder Cyclops-Docking-Buchten und dockt Seamoth/Prawn-Fahrzeuge automatisch ein (`VehicleDockingBay.DockVehicle`).
+### Pass 2: Equipment, Decorations, and Containers
+Once the base geometry is physical, the mod spawns interior items (fabricators, chargers, lockers, posters) at their relative positions.
+* Reparenting: Interior elements are registered as children of the corresponding base modules to prevent shifting.
+* Sign Customization: Locker labels are restored via uGUI_SignInput.
+* Containers: A reflection-based lookup scans components for any ItemsContainer fields or properties (e.g. in lockers, reactors, and filtration machines) and populates them with original items.
 
-### 4. 👤 Spieler-Profil & Inventar-Synchronisation
-* **Wie es funktioniert:** Die Identität und der Zustand des Spielers werden komplett wiederhergestellt.
-* **Technische Umsetzung:**
-  * **Sicherer Teleport:** Um Fall- oder Erstickungstode beim Teleportieren zu verhindern, deaktiviert die Mod temporär den `CharacterController`, setzt die 3D-Koordinaten (`SafeTeleport`) und reaktiviert ihn. Zudem werden kurzzeitig Sauerstoff- und Unverwundbarkeits-Cheats aktiviert.
-  * **Lebenswerte:** Hunger, Durst und Gesundheit werden exakt auf den Zustand im Nitrox-Save gesetzt.
-  * **Inventar & Equipment:** Das Standard-Startinventar wird gelöscht. Alle Multiplayer-Gegenstände werden neu erzeugt und in die exakten Slots (Anzug, Flasche, Handschuhe usw.) ausgerüstet.
+### Pass 3: Vehicle Restoration
+Vehicles are spawned with original names, colors, upgrades, and energy stats:
+* Cyclops Stability: The Cyclops is temporarily frozen (isKinematic = true) and leveled to prevent physics glitches while spawning its internal items.
+* Cosmetics: Names and colors are applied directly to the SubName script.
+* Upgrades: Modules are instantiated and slotted into the vehicle's equipment grid.
+* Docking: The mod checks for nearby Moonpools or Cyclops docking bays and docks vehicles automatically.
 
-### 5. 📖 PDA, Blueprints & Story-Fortschritt
-* **Wie es funktioniert:** Dein gesamter Spielfortschritt bleibt erhalten.
-* **Technische Umsetzung:**
-  * **Blueprints & Datenbank:** Unlocked Blueprints werden über `KnownTech.Add` registriert, Enzyklopädie-Einträge via `PDAEncyclopedia.Add`.
-  * **Audio- & Radio-Logs:** Werden rekonstruiert und ihre ursprünglichen Timestamps per Reflection in `PDALog.entries` eingetragen.
-  * **Story-Trigger:** Bereits abgeschlossene Story-Ziele (wie Aurora-Explosionen oder Precursor-Events) werden über `Story.StoryGoalManager.main.OnGoalComplete` getriggert, um alle verknüpften Events im Spiel auszulösen.
-  * **Signal-Schutz:** Wichtige Signale und Rettungskapsel-Marker werden explizit wieder sichtbar geschaltet (`PingInstance.SetVisible(true)`).
-  * **Weltzeit:** Die Tageszeit wird über `DayNightCycle.main.timePassedAsDouble` synchronisiert.
+### Player Profile and Inventory Sync
+The player's state is fully restored:
+* Teleportation: To prevent falling or suffocating during load, the mod temporarily disables the CharacterController, sets the position, and enables short-term cheats.
+* Stats: Food, water, and health are synchronized.
+* Inventory: Starting items are cleared, and the original Nitrox inventory items are spawned and equipped into the correct slots.
 
-### 6. ⚡ Verzögerte Energie-Registrierung (Delayed Power Registration)
-* **Wie es funktioniert:** Reaktoren und Filtermaschinen benötigen Zeit zur physikalischen Initialisierung.
-* **Technische Umsetzung:** Ein zweistufiger verzögerter Hintergrundprozess (`DelayedRegisterAllBasePowerDevices`) scannt 8 und 13 Sekunden nach der Konvertierung die gesamte Welt ab. Er verknüpft Kernreaktoren (`BaseNuclearReactor`), Bioreaktoren (`BaseBioReactor`) und Wasserfilterungsanlagen (`FiltrationMachine`) mit dem Energienetzwerk (`PowerRelay`) der jeweils nächsten Basis, um Strom, Licht und Sauerstoffproduktion sofort zu aktivieren.
+### PDA and Story Progress
+* Blueprints and Encyclopedia: Unlocked blueprints are registered via KnownTech, and encyclopedia articles are added via PDAEncyclopedia.
+* PDA Logs: Audio and radio logs are restored with their original timestamps.
+* Story Triggers: Completed goals are re-triggered using StoryGoalManager.main.OnGoalComplete to fire associated scripting events.
+* Signal Visibility: Lifepod and signal markers are forced visible on the HUD.
 
----
+### Delayed Power Registration
+To ensure nuclear reactors, bioreactors, and filtration machines initialize properly, a delayed two-pass background process runs 8 and 13 seconds post-conversion. This scans the scene and links these devices to the power relays of their closest bases, establishing oxygen and electricity.
 
-## 🛠️ Harmony-Patches (Die technischen Lebensretter)
+## Harmony Patches
 
-Da die Subnautica-Engine nicht für das plötzliche Einfügen von Multiplayer-Netzwerkdaten im laufenden Singleplayer-Betrieb ausgelegt ist, verwendet die Mod **Harmony (2.x)**-Patches, um Abstürze und Fehlermeldungen (NullReferenceExceptions) abzufangen:
+The mod applies Harmony patches to bypass Subnautica engine bugs and avoid NullReferenceExceptions during raw data injection:
+* BaseFiltrationMachineGeometry: Prevents exceptions in filtration machine visuals when grid links are missing, falling back to a distance-based search.
+* Component Initialization: Postfix patches on Start methods ensure filtration machines, bioreactors, and nuclear reactors receive valid base and power relay references immediately.
 
-1. **`BaseFiltrationMachineGeometry_UpdateVisuals_Patch` (Prefix & Finalizer):** Verhindert NullReferenceExceptions in der Geometrie-Visualisierung von Wasserfiltern. Wenn das Spiel die Verbindung zwischen der Basis-Wand und der Maschine verliert, führt der Patch eine distanzbasierte Suche durch und stellt die visuelle Verbindung sicher, andernfalls wird der Aufruf sicher übersprungen.
-2. **`FiltrationMachine_Start_Patch` & `BaseNuclearReactor_Start_Patch` & `BaseBioReactor_Start_Patch` (Postfix):** Erzwingen direkt nach dem Start der Komponenten, dass diese eine gültige Referenz auf ihre Basis (`Base`) und deren Energierelais (`PowerRelay`) erhalten.
+## Save Structure
 
----
+The converter parses the following Nitrox server files:
 
-## 📂 Nitrox-Speicherstruktur (Was wird gelesen?)
-
-Die Mod sucht im Save-Verzeichnis nach den folgenden vier JSON-Dateien aus deinem Nitrox-Server-Save:
-
-| Datei | Beschreibung | In der Mod abgebildet als |
+| File | Description | Mod Struct |
 |---|---|---|
-| **`WorldData.json`** | Enthält den World-Seed, PDA-Scans, Enzyklopädie-Einträge und Story-Fortschritte. | `WorldData` / `GameData` |
-| **`PlayerData.json`** | Profile aller Spieler inklusive Ausrüstung, Position, Ausrichtung und Überlebenswerten. | `List<PlayerData>` |
-| **`GlobalRootData.json`** | Der Haupt-Spielstand mit allen großen Entitäten (Basen-Grids, Fahrzeuge). | `List<GlobalEntityData>` |
-| **`EntityData.json`** | Kleinere, dynamische Weltobjekte (gedroppte Items, Fische, etc.). | `List<GlobalEntityData>` |
+| WorldData.json | World seed, PDA scans, encyclopedia, and story progression. | WorldData / GameData |
+| PlayerData.json | Player profiles including equipment, position, and survival stats. | List<PlayerData> |
+| GlobalRootData.json | Primary world entities (base structures and vehicles). | List<GlobalEntityData> |
+| EntityData.json | Secondary and dynamic world objects (dropped items, etc.). | List<GlobalEntityData> |
 
----
+## Requirements
 
-## 📋 Anforderungen
+* Subnautica (v2025 or newer recommended)
+* BepInEx 5.x
+* Newtonsoft.Json (included in release)
 
-* **Subnautica** (Version 2025 oder neuer empfohlen)
-* **BepInEx 5.x** (Mod Loader)
-* **Newtonsoft.Json** (im Release-Paket der Mod enthalten)
+## Installation
 
----
+1. Install BepInEx 5.x in your Subnautica game directory.
+2. Copy NitroxConverterMod.dll into the BepInEx/plugins/ directory.
+3. Create a folder named save in BepInEx/plugins/ and copy your Nitrox server save files there:
+   ```
+   Subnautica/
+   └── BepInEx/
+       └── plugins/
+           └── save/
+               ├── GlobalRootData.json
+               ├── EntityData.json
+               ├── PlayerData.json
+               └── WorldData.json
+   ```
 
-## 📦 Installation & Einrichtung
+## Usage
 
-1. **BepInEx 5.x installieren:**
-   * Lade [BepInEx 5.x](https://github.com/BepInEx/BepInEx/releases) herunter.
-   * Entpacke das Archiv in das Hauptverzeichnis deines Subnautica-Spiels (dort, wo sich die `Subnautica.exe` befindet).
-   * Starte das Spiel einmal kurz, damit BepInEx seine Ordnerstrukturen anlegt, und schließe es wieder.
+1. Start Subnautica and load or create any survival save.
+2. Leave Lifepod 5 (the status overlay in the top-right will turn green once ready).
+3. Press F10 or Ctrl+L to begin the conversion.
+4. Monitor progress via the UI overlay.
+5. Save your game manually once the process is complete.
 
-2. **Mod-Dateien kopieren:**
-   * Verschiebe die `NitroxConverterMod.dll` (und die mitgelieferte `Newtonsoft.Json.dll`, falls vorhanden) in das Verzeichnis `Subnautica/BepInEx/plugins/`.
+## Configuration
 
-3. **Nitrox-Spielstand bereitstellen:**
-   * Erstelle im `plugins`-Ordner einen Unterordner namens `save`.
-   * Kopiere die vier JSON-Dateien (`GlobalRootData.json`, `EntityData.json`, `PlayerData.json`, `WorldData.json`) deines Nitrox-Servers in diesen Ordner:
-     ```
-     Subnautica/
-     └── BepInEx/
-         └── plugins/
-             └── save/
-                 ├── GlobalRootData.json
-                 ├── EntityData.json
-                 ├── PlayerData.json
-                 └── WorldData.json
-     ```
-
----
-
-## 🚀 Nutzung
-
-1. Starte Subnautica und **lade einen beliebigen Spielstand** (oder erstelle einen neuen Überlebensmodus-Spielstand).
-2. Verlasse die **Rettungskapsel (Lifepod 5)** und schwimme ins offene Wasser. 
-   > ⚠️ **Wichtig:** Das Plugin wartet darauf, dass der Spieler die Kapsel verlässt, um Spawning-Konflikte zu vermeiden. Dies wird oben rechts in einem eleganten Statusfenster angezeigt.
-3. Sobald der Status auf **"Active & Ready"** springt, drücke die Taste **`F10`** oder die Tastenkombination **`Strg + L`**.
-4. Ein modernes, integriertes Overlay zeigt dir in Echtzeit den Fortschritt der Konvertierung an.
-5. Sobald die Konvertierung abgeschlossen ist, **speichere das Spiel manuell ab**. Dein Spielstand ist nun dauerhaft im Einzelspielermodus spielbar! Die Mod-Dateien können danach wieder entfernt werden.
-
----
-
-## ⚙️ Konfiguration
-
-Nach dem ersten Spielstart wird eine Konfigurationsdatei unter `BepInEx/config/com.ctmn61.nitroxconverter.cfg` erstellt:
+After the first launch, a config file is generated at BepInEx/config/com.ctmn61.nitroxconverter.cfg:
 
 ```ini
 [General]
-# Der Name des Spielers, dessen Inventar und Position wiederhergestellt werden soll.
-# Bleibt dieses Feld leer oder steht dort "Player", wird automatisch das erste Spielerprofil 
-# aus der PlayerData.json geladen.
+# The name of the Nitrox player profile to restore. 
+# If left empty, the first profile in PlayerData.json is used.
 PlayerName = Player
 ```
 
----
+## License
 
-## 📄 Lizenz
-
-Dieses Projekt ist lizenziert unter der [MIT-Lizenz](LICENSE).
-
----
-**Plugin ID:** `com.ctmn61.nitroxconverter` | **Autor:** CTMN61 | **Version:** 1.0.0
+This project is licensed under the MIT License.
