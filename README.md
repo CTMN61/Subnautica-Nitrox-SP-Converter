@@ -6,16 +6,16 @@ A BepInEx plugin for Subnautica that converts Nitrox multiplayer save files into
 
 Ever spent dozens of hours on a Nitrox multiplayer server and wished you could continue that world on your own? This mod reads your Nitrox save files and attempts to rebuild your bases, vehicles, inventory, and story progress directly into a singleplayer session.
 
-> **Disclaimer:** This entire project was **vibe-coded**. It is held together by hope, reflection, and duct tape. Bugs, glitches, and weird behaviors are not just possible—they are guaranteed. Use with caution (and backup your saves!).
+> **Disclaimer & Warning:** This software is an experimental, community-made converter and is provided "as-is". Due to the complex nature of translating multiplayer network data into a singleplayer environment, unexpected behaviors and save data corruption can occur. **Always back up your singleplayer and Nitrox save files before proceeding.**
 
-## Known Limitations & Weird Quirks
+## Known Technical Limitations
 
-Because multiplayer sync data is completely different from how vanilla Subnautica handles things, you will encounter the following quirks:
+Due to fundamental differences in how multiplayer network states and vanilla Subnautica save files are structured, the following limitations currently apply:
 
-* **Cyclops Issues**: The Cyclops might spawn bugged, tilted, empty, or doing backflips in the water.
-* **Ghost Items**: Random items might spawn in places where they definitely shouldn't be.
-* **Unusable Interior Devices**: Fabricators, lockers, or chargers placed inside bases might be non-interactive at first. You will likely need to deconstruct (pick them up) and place them down again to make them usable.
-* **Weird Exterior Lighting**: Placed base objects on the outside might have pitch-black or broken lighting/shaders. Re-placing them fixes their look.
+* **Cyclops Initialization**: The Cyclops submarine may occasionally spawn with misaligned physics, incorrect buoyancy, or incomplete interior structures.
+* **Redundant Entities**: Unintended duplicate or misplaced items may occasionally spawn at incorrect coordinates due to differences in entity tracking between Nitrox and vanilla.
+* **Interior Device Interaction**: Interior appliances (such as fabricators, storage lockers, or chargers) may occasionally lose their interaction triggers after spawning. Deconstructing (picking up) and rebuilding the affected device fully restores its functionality.
+* **Exterior Lighting & Shaders**: Placed base objects on the outside of structures may occasionally display incorrect shaders or pitch-black lighting. Re-placing the affected object resolves the rendering issue.
 
 ## Requirements
 
