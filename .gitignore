@@ -1,0 +1,83 @@
+# ============================================================
+# Nitrox to Singleplayer Converter — .gitignore
+# ============================================================
+
+# ---------------------------
+# Build output
+# ---------------------------
+bin/
+obj/
+
+# Compiled DLLs in root (build output — source DLLs live in bin/)
+/*.dll
+
+# Compiled executables (debug tools)
+*.exe
+
+# Debug symbols
+*.pdb
+
+# ---------------------------
+# User data
+# ---------------------------
+# Nitrox save files (user-specific, should not be committed)
+save/
+
+# ---------------------------
+# Development / debug tools
+# ---------------------------
+# Python helper scripts (development-only tooling)
+*.py
+
+# Decompiled output
+*.txt
+
+# Debug inspection tools
+inspect_app/
+inspect_geom_app/
+
+# ---------------------------
+# IDE / Editor
+# ---------------------------
+.vs/
+*.user
+*.suo
+*.cache
+*.rsuser
+
+# Rider
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+
+# ---------------------------
+# NuGet
+# ---------------------------
+packages/
+*.nupkg
+project.lock.json
+
+# ---------------------------
+# OS files
+# ---------------------------
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# ---------------------------
+# Explicitly tracked (never ignore)
+# ---------------------------
+# These are listed here for documentation; git tracks them by default.
+# !*.cs
+# !*.csproj
+# !nuget.config
+# !README.md
+# !CHANGELOG.md
+# !LICENSE
+# !.gitignore
+
+# Compiled release archives
+*.zip
